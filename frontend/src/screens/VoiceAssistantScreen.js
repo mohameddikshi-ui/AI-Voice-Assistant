@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
 import {
   View,
@@ -6,11 +6,10 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
-  PermissionsAndroid,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 
-import Voice from '@react-native-voice/voice';
+import VoiceToText from 'react-native-voice-to-text';
 
 import { sendMessage } from '../services/api';
 
@@ -19,64 +18,62 @@ const VoiceAssistantScreen = () => {
 
   const [reply, setReply] = useState('');
 
+  const [loading, setLoading] = useState(false);
+
   const [listening, setListening] = useState(false);
 
-  useEffect(() => {
-    Voice.onSpeechResults = event => {
-      if (event.value && event.value.length > 0) {
-        setText(event.value[0]);
-
-        setListening(false);
-      }
-    };
-
-    return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
-    };
-  }, []);
-
-  const requestMicPermission = async () => {
-    if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-      );
-
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    }
-
-    return true;
-  };
-
-  const startListening = async () => {
-    console.log('Mic button pressed');
-
-    const hasPermission = await requestMicPermission();
-
-    console.log('Permission:', hasPermission);
-
-    if (!hasPermission) {
-      return;
-    }
-
+  const startVoiceRecognition = async () => {
     try {
-      console.log('Starting voice...');
-
       setListening(true);
 
-      await Voice.start('en-US');
+      setReply('');
 
-      console.log('Voice started');
+      console.log('Starting voice recognition...');
+
+      const result = await VoiceToText.startListening();
+
+      console.log('VOICE RESULT:', result);
+
+      if (result && result.value && result.value.length > 0) {
+        setText(result.value[0]);
+      } else {
+        setReply('No speech detected');
+      }
     } catch (error) {
-      console.log('VOICE ERROR:', error);
+      console.log('VOICE ERROR:', JSON.stringify(error, null, 2));
 
+      setReply(error?.message || 'Voice recognition failed');
+    } finally {
       setListening(false);
     }
   };
 
   const askAI = async () => {
-    const aiReply = await sendMessage(text);
+    if (!text.trim()) {
+      setReply('Please speak or type something');
 
-    setReply(aiReply);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      setReply('');
+
+      console.log('Sending to AI:', text);
+
+      const aiReply = await sendMessage(text);
+
+      console.log('AI Reply:', aiReply);
+
+      setReply(aiReply);
+    } catch (error) {
+      console.log('AI ERROR:', JSON.stringify(error, null, 2));
+
+      setReply('Error talking to AI');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -91,17 +88,30 @@ const VoiceAssistantScreen = () => {
         placeholderTextColor="#777"
       />
 
-      <TouchableOpacity style={styles.micButton} onPress={startListening}>
+      <TouchableOpacity
+        style={[styles.micButton, listening && styles.listeningButton]}
+        onPress={startVoiceRecognition}
+      >
         <Text style={styles.buttonText}>
-          {listening ? 'Listening...' : '🎤 Speak'}
+          {listening ? '🎙 Listening...' : '🎤 Speak'}
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.askButton} onPress={askAI}>
-        <Text style={styles.buttonText}>Ask AI</Text>
+      <TouchableOpacity
+        style={styles.askButton}
+        onPress={askAI}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <Text style={styles.buttonText}>Ask AI</Text>
+        )}
       </TouchableOpacity>
 
-      <Text style={styles.reply}>{reply}</Text>
+      <View style={styles.replyContainer}>
+        <Text style={styles.reply}>{reply}</Text>
+      </View>
     </View>
   );
 };
@@ -116,8 +126,8 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 32,
-    marginBottom: 30,
+    fontSize: 34,
+    marginBottom: 35,
     color: 'white',
     fontWeight: 'bold',
   },
@@ -128,42 +138,50 @@ const styles = StyleSheet.create({
     borderColor: '#444',
     backgroundColor: '#1E1E1E',
     color: 'white',
-    padding: 15,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 14,
     marginBottom: 20,
     fontSize: 18,
   },
 
   micButton: {
     backgroundColor: '#7B2CBF',
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 15,
+    paddingVertical: 16,
+    borderRadius: 16,
     marginBottom: 15,
-    width: '80%',
+    width: '85%',
     alignItems: 'center',
+  },
+
+  listeningButton: {
+    backgroundColor: '#D00000',
   },
 
   askButton: {
     backgroundColor: '#2563EB',
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 15,
-    width: '80%',
+    paddingVertical: 16,
+    borderRadius: 16,
+    width: '85%',
     alignItems: 'center',
   },
 
   buttonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
   },
 
-  reply: {
+  replyContainer: {
     marginTop: 40,
-    fontSize: 20,
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+
+  reply: {
+    fontSize: 24,
     color: 'white',
     textAlign: 'center',
+    lineHeight: 34,
   },
 });
 

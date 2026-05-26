@@ -10,7 +10,7 @@ export const sendMessage = async message => {
 
     return response.data.reply;
   } catch (error) {
-    console.log(error);
+    console.log('API ERROR:', JSON.stringify(error, null, 2));
 
     return 'Error talking to AI';
   }
