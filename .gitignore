@@ -88,3 +88,40 @@ frontend/android/build/
 frontend/android/app/build/
 
 *.keystore
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Node
+node_modules/
+
+# React Native
+android/.gradle
+android/app/build
+ios/build
+
+
+# Python Virtual Environment
+backend/venv/
+backend/Lib/
+backend/Scripts/
+backend/Include/
+backend/pyvenv.cfg
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Environment Files
+.env
+
+# Node Modules
+node_modules/
+
+# React Native
+android/.gradle
+android/app/build
+ios/build
